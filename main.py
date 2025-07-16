@@ -20,7 +20,7 @@ from src.sync_manager import SyncManager
 # Required configuration parameters
 REQUIRED_PARAMETERS = [
     'jira_base_url',
-    'jira_project_key', 
+    'jira_project_key',
     'jira_email',
     'jira_token',
     'asana_workspace_gid',
@@ -29,26 +29,14 @@ REQUIRED_PARAMETERS = [
 ]
 
 
-def validate_configuration(cfg: CommonInterface) -> None:
-    """
-    Validate required configuration parameters
-    """
-    params = cfg.get_parameters()
-    missing_params = [param for param in REQUIRED_PARAMETERS if param not in params]
-    
-    if missing_params:
-        raise UserException(f"Missing required parameters: {', '.join(missing_params)}")
-
-
-
 def run_sync(cfg: CommonInterface) -> None:
     """
     Main execution code for Jira-Asana synchronization
     """
     # Validate required configuration parameters
-    validate_configuration(cfg)
-    
-    params = cfg.get_parameters()
+    cfg.validate_configuration_parameters(REQUIRED_PARAMETERS)
+
+    params = cfg.configuration.parameters
     logging.info("🚀 Starting Jira-Asana synchronization")
 
     try:
@@ -83,7 +71,7 @@ def run_sync(cfg: CommonInterface) -> None:
 
         # Determine sync mode from configuration
         goal_name = params.get('goal_name')
-        
+
         if goal_name:
             # Sync specific goal
             logging.info(f"📍 Synchronizing specific goal: {goal_name}")
@@ -99,12 +87,6 @@ def run_sync(cfg: CommonInterface) -> None:
         else:
             logging.warning("⚠️ No goals were synchronized - check configuration")
 
-        # Save state for next run (optional)
-        cfg.write_state_file({
-            "last_sync_goals": success_count,
-            "last_sync_timestamp": datetime.now().isoformat()
-        })
-
     except Exception as e:
         logging.error(f"❌ Synchronization failed: {str(e)}")
         raise UserException(f"Sync failed: {str(e)}")
@@ -117,13 +99,13 @@ if __name__ == "__main__":
     try:
         # Initialize common interface
         cfg = CommonInterface()
-        
+
         # Run synchronization
         run_sync(cfg)
-            
+
     except UserException as exc:
         logging.exception(exc)
         exit(1)
     except Exception as exc:
         logging.exception(exc)
-        exit(2) 
+        exit(2)

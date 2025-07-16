@@ -13,7 +13,12 @@ class JiraAPI:
     """Jira API client for ticket synchronization"""
     
     def __init__(self, config: dict[str, any]):
-        self.base_url = config['base_url']
+        # Ensure base_url has protocol
+        base_url = config['base_url']
+        if not base_url.startswith(('http://', 'https://')):
+            base_url = f"https://{base_url}"
+        
+        self.base_url = base_url
         self.project_key = config['project_key']
         self.email = config['email']
         self.token = config['token']
