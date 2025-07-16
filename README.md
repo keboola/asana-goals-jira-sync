@@ -23,12 +23,17 @@ This Keboola component automatically synchronizes Jira tickets with Asana tasks,
 - **`jira_token`** - Jira API token (**encrypted parameter**)
 
 #### Asana Configuration  
-- **`asana_team_gid`** - Asana team ID
 - **`asana_token`** - Asana Personal Access Token (**encrypted parameter**)
+
+#### Asana Scope (at least one required)
+- **`asana_goal_gids`** - Specific goal IDs to sync (string or array)
+- **`asana_project_gids`** - Project IDs - sync all goals in these projects (string or array)  
+- **`asana_team_gids`** - Team IDs - sync all goals in these teams (string or array)
+- **`asana_workspace_gids`** - Workspace IDs - sync all goals in these workspaces (string or array)
 
 ### Optional Parameters
 
-- **`goal_name`** - Specific goal name to sync (if empty, syncs all goals)
+- **`dry_run`** - Test mode that shows what would be done without making changes (default: false)
 - **`status_mapping`** - Custom status mapping object (uses defaults if not provided)
 
 ### Default Status Mapping
@@ -65,9 +70,14 @@ Copy this JSON template into your Keboola component configuration:
   "jira_base_url": "",
   "jira_email": "",
   "#jira_token": "",
-  "asana_team_gid": "",
+  
+  "asana_goal_gids": [],
+  "asana_project_gids": [],
+  "asana_team_gids": [],
+  "asana_workspace_gids": [],
+  
   "#asana_token": "",
-  "goal_name": "",
+  "dry_run": false,
   "status_mapping": {
     "To Do": "New",
     "In Progress": "In Progress", 
@@ -79,9 +89,31 @@ Copy this JSON template into your Keboola component configuration:
 
 **Notes:**
 - Fill in the empty strings with your actual values
-- `goal_name` can be left empty to sync all goals
-- `status_mapping` shows the default mapping (Asana status → Jira status)
-- Mark `jira_token` and `asana_token` as **encrypted parameters** in Keboola
+- **At least one** of the `asana_*_gids` parameters must be specified
+- Scope parameters can be strings or arrays: `"123456"` or `["123456", "789012"]`
+- `dry_run: true` enables test mode without making changes
+- `status_mapping` shows the default mapping (Jira status → Asana status)
+- Mark `#jira_token` and `#asana_token` as **encrypted parameters** in Keboola
+
+**Example configurations:**
+
+```json
+// Sync specific goals only
+{
+  "asana_goal_gids": ["1210803030748387", "1210803030748388"]
+}
+
+// Sync all goals in a team
+{
+  "asana_team_gids": "123456789"
+}
+
+// Sync multiple teams and specific goals
+{
+  "asana_goal_gids": "1210803030748387",
+  "asana_team_gids": ["123456789", "987654321"]
+}
+```
 
 ## How It Works
 
@@ -90,38 +122,50 @@ Copy this JSON template into your Keboola component configuration:
 ```mermaid
 graph TD
     A["🚀 Keboola Component Start"] --> B[Load configuration from UI]
-    B --> C{goal_name specified?}
+    B --> C[Validate scope parameters]
     
-    C -->|No| D[Sync all goals]
-    C -->|Yes| E[Sync specific goal]
+    C --> D{asana_goal_gids specified?}
+    D -->|Yes| E[Sync specific goals by ID]
+    D -->|No| F{asana_project_gids specified?}
     
-    D --> F[Get all goals from Asana team]
-    E --> G[Find specific goal in Asana]
+    F -->|Yes| G[Sync all goals in projects]
+    F -->|No| H{asana_team_gids specified?}
     
-    F --> H[For each goal]
-    G --> H
+    H -->|Yes| I[Sync all goals in teams]  
+    H -->|No| J{asana_workspace_gids specified?}
     
-    H --> I[Find tasks linked to goal]
-    I --> J[Filter tasks with Jira ticket field]
-    J --> K[For each task with Jira ticket]
+    J -->|Yes| K[Sync all goals in workspaces]
+    J -->|No| L[Error: No scope specified]
     
-    K --> L[Get Jira ticket from API]
-    L --> M{Status changed?}
+    E --> M[For each goal]
+    G --> N[Get goals from projects] --> M
+    I --> O[Get goals from teams] --> M  
+    K --> P[Get goals from workspaces] --> M
     
-    M -->|No| N[Skip]
-    M -->|Yes| O[Get new comments from Jira]
+    M --> Q[Find tasks linked to goal]
+    Q --> R[Filter tasks with Jira ticket attachments]
+    R --> S[For each task with Jira ticket]
     
-    O --> P[Apply status mapping]
-    P --> Q[Create status update in Asana]
-    Q --> R[Add comments to status]
+    S --> T[Get Jira ticket from API]
+    T --> U{Status changed?}
     
-    R --> S{Next task?}
-    S -->|Yes| K
-    S -->|No| T{Next goal?}
-    T -->|Yes| H
-    T -->|No| U[✅ Complete]
+    U -->|No| V[Skip]
+    U -->|Yes| W[Get new comments from Jira]
     
-    N --> S
+    W --> X[Apply status mapping]
+    X --> Y{dry_run mode?}
+    Y -->|Yes| Z[Log what would be done]
+    Y -->|No| AA[Create status update in Asana]
+    AA --> BB[Add comments to status]
+    
+    Z --> CC[Next task?]
+    BB --> CC
+    V --> CC
+    
+    CC -->|Yes| S
+    CC -->|No| DD{Next goal?}
+    DD -->|Yes| M
+    DD -->|No| EE[✅ Complete]
 ```
 
 ## Sync Actions
@@ -164,20 +208,31 @@ The component automatically maps Jira statuses to Asana goal status types:
 - Check that all required configuration parameters are filled in the Keboola UI
 - Ensure encrypted parameters (API tokens) are properly set
 
+#### "Must specify at least one Asana scope" error
+- At least one of these parameters must be filled: `asana_goal_gids`, `asana_project_gids`, `asana_team_gids`, or `asana_workspace_gids`
+- Scope parameters can be strings or arrays of GIDs
+
 #### "Connection failed" error  
 - Use the **Test Connection** sync action to verify API credentials
 - Check API token permissions and expiration dates
-- Verify workspace/team GIDs are correct
+- Verify that specified GIDs are correct and accessible
 
-#### "No goals found in team"
-- Verify the `asana_team_gid` is correct
-- Check that the team has goals created in Asana
-- Ensure API token has access to the specified team
+#### "No goals found" error
+- Verify that the specified GIDs (goal/project/team/workspace) are correct
+- Check that the specified entities contain goals
+- Ensure API token has access to the specified resources
+- Use `dry_run: true` to see what goals would be found
 
 #### "No Asana task found" 
 1. Verify that Asana tasks have Jira ticket attachments (links to Jira tickets)
 2. Ensure attachment names contain valid Jira ticket format (e.g., ABC-123)
 3. Ensure tasks are linked to goals via Asana's Goal Relationships
+4. Use `dry_run: true` to see what tasks are being found
+
+#### Using Dry Run Mode
+- Set `"dry_run": true` to test configuration without making changes
+- Dry run will show what goals and tasks would be processed
+- Use this to verify your scope configuration before running actual sync
 
 ## Requirements
 

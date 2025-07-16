@@ -14,10 +14,14 @@ class SyncManager:
     """Goal-oriented synchronization manager"""
     
     def __init__(self, jira_config: dict[str, any], asana_config: dict[str, any], 
-                 status_mapping: dict[str, str]):
+                 status_mapping: dict[str, str], dry_run: bool = False):
         self.jira = JiraAPI(jira_config)
         self.asana = AsanaAPI(asana_config)
         self.status_mapping = status_mapping
+        self.dry_run = dry_run
+        
+        if self.dry_run:
+            print("🔍 DRY RUN MODE - No changes will be made")
     
     def map_jira_status_to_asana(self, jira_status: str) -> str:
         """Map Jira status to Asana status type"""
@@ -174,19 +178,26 @@ class SyncManager:
             status_text += "\n"
         
         # Create status update using Asana API
-        success = self.asana.create_goal_status_update(
-            goal_gid=goal_gid,
-            title=title,
-            text=status_text,
-            status_type=status_type
-        )
-        
-        if success:
-            print(f"   ✅ Goal status update created")
+        if self.dry_run:
+            print(f"   🔍 DRY RUN: Would create status update:")
+            print(f"      Title: {title}")
+            print(f"      Status: {status_type}")
+            print(f"      Text preview: {status_text[:200]}...")
+            return True
         else:
-            print(f"   ❌ Failed to create goal status update")
-        
-        return success
+            success = self.asana.create_goal_status_update(
+                goal_gid=goal_gid,
+                title=title,
+                text=status_text,
+                status_type=status_type
+            )
+            
+            if success:
+                print(f"   ✅ Goal status update created")
+            else:
+                print(f"   ❌ Failed to create goal status update")
+            
+            return success
     
     def sync_goal(self, goal_name: str) -> int:
         """Synchronize specific goal by name"""
@@ -236,67 +247,188 @@ class SyncManager:
         goal_gid = goal['gid']
         goal_name = goal['name']
         
-        # Collect all Jira tickets from this goal
+        # Get goal relationships (tasks linked to this goal)
+        print(f"      🔍 Fetching goal relationships for goal {goal_gid}")
+        tasks = self.asana.get_goal_tasks(goal_gid)
+        
+        if not tasks:
+            print(f"   ⚠️  No tasks found linked to goal '{goal_name}'")
+            return 0
+        
+        print(f"   📋 Checking {len(tasks)} tasks from goal relationships")
+        
+        # Collect all Jira ticket information for this goal
         jira_tickets_info = []
         
-        # Get tasks directly linked to goal
-        direct_tasks = self.asana.get_goal_tasks(goal_gid)
-        print(f"   📋 Checking {len(direct_tasks)} tasks from goal relationships")
-        
-        # Process direct tasks
-        for task_item in direct_tasks:
-            task_details = self.asana.get_task_details(task_item['gid'])
+        for task in tasks:
+            task_gid = task.get('gid')
+            task_name = task.get('name', 'Unknown Task')
+            print(f"   🔗 Task: {task_name}")
+            
+            if not task_gid:
+                continue
+            
+            # Get task details with Jira ticket
+            task_details = self.asana.get_task_details(task_gid)
             if task_details and task_details.get('jira_ticket'):
                 jira_ticket = task_details['jira_ticket']
-                print(f"   🔗 {task_details['name']} → {jira_ticket}")
+                print(f"      → Jira ticket: {jira_ticket}")
                 
-                # Get Jira status for this ticket
+                # Get current Jira status
                 jira_status = self.jira.get_ticket_status(jira_ticket)
                 if jira_status:
+                    print(f"         Current status: {jira_status}")
                     jira_tickets_info.append({
-                        'task_name': task_details['name'],
+                        'task_name': task_name,
                         'jira_ticket': jira_ticket,
                         'jira_status': jira_status,
-                        'source': 'direct task'
+                        'source': f'goal: {goal_name}'
                     })
                 else:
-                    print(f"      ❌ Could not get Jira status for {jira_ticket}")
-        
-        # Get and process projects linked to goal
-        goal_projects = self.asana.get_goal_projects(goal_gid)
-        if goal_projects:
-            print(f"   📁 Checking {len(goal_projects)} supporting projects")
-            
-            for project in goal_projects:
-                project_gid = project['gid']
-                project_name = project.get('name', project_gid)
-                
-                # Get tasks with Jira links from this project
-                project_tasks = self.asana.get_project_tasks_with_jira_field(project_gid)
-                
-                for task in project_tasks:
-                    jira_ticket = task.get('jira_ticket')
-                    if jira_ticket:
-                        print(f"      🔗 {task['name']} → {jira_ticket}")
-                        
-                        # Get Jira status for this ticket
-                        jira_status = self.jira.get_ticket_status(jira_ticket)
-                        if jira_status:
-                            jira_tickets_info.append({
-                                'task_name': task['name'],
-                                'jira_ticket': jira_ticket,
-                                'jira_status': jira_status,
-                                'source': f'project: {project_name}'
-                            })
-                        else:
-                            print(f"         ❌ Could not get Jira status for {jira_ticket}")
+                    print(f"         ❌ Could not get Jira status for {jira_ticket}")
         
         # Create goal status update with all Jira information
         if jira_tickets_info:
             success = self.create_goal_status_update(goal_gid, goal_name, jira_tickets_info)
             if success:
                 print(f"   ✅ Goal '{goal_name}': Processed {len(jira_tickets_info)} Jira tickets")
-                return len(jira_tickets_info)
+                return 1  # Return 1 goal processed
+            else:
+                print(f"   ❌ Goal '{goal_name}': Failed to process status update")
+                return 0
+        else:
+            print(f"   ⚠️  No Jira tickets found for goal '{goal_name}'")
+            return 0 
+
+    def sync_goal_by_id(self, goal_gid: str) -> int:
+        """Synchronize specific goal by ID"""
+        print(f"🎯 Synchronizing goal ID: {goal_gid}")
+        
+        # Get goal details
+        goal = self.asana.get_goal_by_id(goal_gid)
+        if not goal:
+            print(f"❌ Goal with ID '{goal_gid}' not found")
+            return 0
+        
+        goal_name = goal['name']
+        print(f"📍 Found goal: {goal_name} ({goal_gid})")
+        
+        # Process this goal using existing logic
+        return self._process_single_goal(goal_gid, goal_name)
+
+    def sync_goals_in_project(self, project_gid: str) -> int:
+        """Synchronize all goals in a project"""
+        print(f"🎯 Synchronizing goals in project ID: {project_gid}")
+        
+        goals = self.asana.get_goals_in_project(project_gid)
+        if not goals:
+            print(f"⚠️ No goals found in project '{project_gid}'")
+            return 0
+        
+        print(f"📍 Found {len(goals)} goals in project")
+        
+        total_processed = 0
+        for goal in goals:
+            goal_gid = goal['gid']
+            goal_name = goal['name']
+            processed = self._process_single_goal(goal_gid, goal_name)
+            total_processed += processed
+        
+        return total_processed
+
+    def sync_goals_in_team(self, team_gid: str) -> int:
+        """Synchronize all goals in a team"""
+        print(f"🎯 Synchronizing goals in team ID: {team_gid}")
+        
+        goals = self.asana.get_goals_in_team(team_gid)
+        if not goals:
+            print(f"⚠️ No goals found in team '{team_gid}'")
+            return 0
+        
+        print(f"📍 Found {len(goals)} goals in team")
+        
+        total_processed = 0
+        for goal in goals:
+            goal_gid = goal['gid']
+            goal_name = goal['name']
+            processed = self._process_single_goal(goal_gid, goal_name)
+            total_processed += processed
+        
+        return total_processed
+
+    def sync_goals_in_workspace(self, workspace_gid: str) -> int:
+        """Synchronize all goals in a workspace"""
+        print(f"🎯 Synchronizing goals in workspace ID: {workspace_gid}")
+        
+        goals = self.asana.get_goals_in_workspace(workspace_gid)
+        if not goals:
+            print(f"⚠️ No goals found in workspace '{workspace_gid}'")
+            return 0
+        
+        print(f"📍 Found {len(goals)} goals in workspace")
+        
+        total_processed = 0
+        for goal in goals:
+            goal_gid = goal['gid']
+            goal_name = goal['name']
+            processed = self._process_single_goal(goal_gid, goal_name)
+            total_processed += processed
+        
+        return total_processed
+
+    def _process_single_goal(self, goal_gid: str, goal_name: str) -> int:
+        """Process a single goal - extracted logic from sync_all_goals"""
+        print(f"\n🎯 Processing goal: {goal_name} ({goal_gid})")
+        
+        if self.dry_run:
+            print(f"   🔍 DRY RUN: Would sync goal '{goal_name}'")
+        
+        # Get goal relationships (tasks linked to this goal)
+        print(f"      🔍 Fetching goal relationships for goal {goal_gid}")
+        tasks = self.asana.get_goal_tasks(goal_gid)
+        
+        if not tasks:
+            print(f"   ⚠️  No tasks found linked to goal '{goal_name}'")
+            return 0
+        
+        print(f"   📋 Checking {len(tasks)} tasks from goal relationships")
+        
+        # Collect all Jira ticket information for this goal
+        jira_tickets_info = []
+        
+        for task in tasks:
+            task_gid = task.get('gid')
+            task_name = task.get('name', 'Unknown Task')
+            print(f"   🔗 Task: {task_name}")
+            
+            if not task_gid:
+                continue
+            
+            # Get task details with Jira ticket
+            task_details = self.asana.get_task_details(task_gid)
+            if task_details and task_details.get('jira_ticket'):
+                jira_ticket = task_details['jira_ticket']
+                print(f"      → Jira ticket: {jira_ticket}")
+                
+                # Get current Jira status
+                jira_status = self.jira.get_ticket_status(jira_ticket)
+                if jira_status:
+                    print(f"         Current status: {jira_status}")
+                    jira_tickets_info.append({
+                        'task_name': task_name,
+                        'jira_ticket': jira_ticket,
+                        'jira_status': jira_status,
+                        'source': f'goal: {goal_name}'
+                    })
+                else:
+                    print(f"         ❌ Could not get Jira status for {jira_ticket}")
+        
+        # Create goal status update with all Jira information
+        if jira_tickets_info:
+            success = self.create_goal_status_update(goal_gid, goal_name, jira_tickets_info)
+            if success:
+                print(f"   ✅ Goal '{goal_name}': Processed {len(jira_tickets_info)} Jira tickets")
+                return 1  # Return 1 goal processed
             else:
                 print(f"   ❌ Goal '{goal_name}': Failed to process status update")
                 return 0

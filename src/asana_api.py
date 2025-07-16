@@ -51,7 +51,19 @@ class AsanaAPI:
                     print(f"❌ Response text: {e.response.text}")
             return None
     
-    def get_team_goals(self, team_gid: str) -> list[dict[str, any]]:
+    def get_goal_by_id(self, goal_gid: str) -> dict[str, any] | None:
+        """Get specific goal by ID"""
+        endpoint = f"goals/{goal_gid}"
+        params = {
+            'opt_fields': 'gid,name,status,team,project'
+        }
+        
+        response = self._make_request('GET', endpoint, params=params)
+        if response and 'data' in response:
+            return response['data']
+        return None
+
+    def get_goals_in_team(self, team_gid: str) -> list[dict[str, any]]:
         """Get all goals in team"""
         endpoint = f"goals"
         params = {
@@ -63,10 +75,41 @@ class AsanaAPI:
         if response and 'data' in response:
             return response['data']
         return []
-    
+
+    def get_goals_in_project(self, project_gid: str) -> list[dict[str, any]]:
+        """Get all goals linked to project"""
+        endpoint = f"goals"
+        params = {
+            'project': project_gid,
+            'opt_fields': 'gid,name,status'
+        }
+        
+        response = self._make_request('GET', endpoint, params=params)
+        if response and 'data' in response:
+            return response['data']
+        return []
+
+    def get_goals_in_workspace(self, workspace_gid: str) -> list[dict[str, any]]:
+        """Get all goals in workspace"""
+        endpoint = f"goals"
+        params = {
+            'workspace': workspace_gid,
+            'opt_fields': 'gid,name,status'
+        }
+        
+        response = self._make_request('GET', endpoint, params=params)
+        if response and 'data' in response:
+            return response['data']
+        return []
+
+    # Legacy method - keeping for backward compatibility
+    def get_team_goals(self, team_gid: str) -> list[dict[str, any]]:
+        """Get all goals in team (legacy method)"""
+        return self.get_goals_in_team(team_gid)
+
     def get_goal_by_name(self, team_gid: str, goal_name: str) -> dict[str, any] | None:
         """Find goal by name in team"""
-        goals = self.get_team_goals(team_gid)
+        goals = self.get_goals_in_team(team_gid)
         for goal in goals:
             if goal.get('name') == goal_name:
                 return goal
