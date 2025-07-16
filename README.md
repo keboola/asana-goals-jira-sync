@@ -13,6 +13,80 @@ This Keboola component automatically synchronizes Jira tickets with Asana tasks,
 - 📊 **Configuration via Keboola UI**
 - 🔐 **Encrypted parameter storage** for API tokens
 
+## Configuration Parameters
+
+### Required Parameters
+
+#### Jira Configuration
+- **`jira_base_url`** - Your Jira instance URL (e.g., `https://company.atlassian.net`)
+- **`jira_project_key`** - Jira project key (e.g., `CFT`)
+- **`jira_email`** - Your Jira email address
+- **`jira_token`** - Jira API token (**encrypted parameter**)
+
+#### Asana Configuration  
+- **`asana_workspace_gid`** - Asana workspace ID
+- **`asana_team_gid`** - Asana team ID
+- **`asana_token`** - Asana Personal Access Token (**encrypted parameter**)
+
+### Optional Parameters
+
+- **`goal_name`** - Specific goal name to sync (if empty, syncs all goals)
+- **`status_mapping`** - Custom status mapping object (uses defaults if not provided)
+
+### Default Status Mapping
+
+```json
+{
+  "To Do": "New",
+  "In Progress": "In Progress",
+  "Done": "Complete",
+  "Blocked": "On Hold"
+}
+```
+
+### Custom Status Mapping Example
+
+```json
+{
+  "To Do": "New",
+  "In Progress": "In Progress", 
+  "Code Review": "In Progress",
+  "Testing": "In Progress",
+  "Done": "Complete",
+  "Blocked": "On Hold",
+  "Won't Do": "Complete"
+}
+```
+
+## Keboola Configuration JSON Template
+
+Copy this JSON template into your Keboola component configuration:
+
+```json
+{
+  "jira_base_url": "",
+  "jira_project_key": "",
+  "jira_email": "",
+  "#jira_token": "",
+  "asana_workspace_gid": "",
+  "asana_team_gid": "",
+  "#asana_token": "",
+  "goal_name": "",
+  "status_mapping": {
+    "To Do": "New",
+    "In Progress": "In Progress", 
+    "Done": "Complete",
+    "Blocked": "On Hold"
+  }
+}
+```
+
+**Notes:**
+- Fill in the empty strings with your actual values
+- `goal_name` can be left empty to sync all goals
+- `status_mapping` shows the default mapping (Asana status → Jira status)
+- Mark `jira_token` and `asana_token` as **encrypted parameters** in Keboola
+
 ## How It Works
 
 ### Goal-Oriented Synchronization Process
@@ -52,58 +126,6 @@ graph TD
     T -->|No| U[✅ Complete]
     
     N --> S
-```
-
-## Installation in Keboola
-
-1. **Add Component** to your Keboola project
-2. **Configure parameters** via the UI
-3. **Set up scheduling** or run manually
-
-## Configuration Parameters
-
-### Required Parameters
-
-#### Jira Configuration
-- **`jira_base_url`** - Your Jira instance URL (e.g., `https://company.atlassian.net`)
-- **`jira_project_key`** - Jira project key (e.g., `CFT`)
-- **`jira_email`** - Your Jira email address
-- **`jira_token`** - Jira API token (**encrypted parameter**)
-
-#### Asana Configuration  
-- **`asana_workspace_gid`** - Asana workspace ID
-- **`asana_team_gid`** - Asana team ID
-- **`asana_token`** - Asana Personal Access Token (**encrypted parameter**)
-- **`asana_jira_ticket_field`** - Custom field name for Jira tickets (e.g., `"Jira Ticket"`)
-
-### Optional Parameters
-
-- **`goal_name`** - Specific goal name to sync (if empty, syncs all goals)
-- **`status_mapping`** - Custom status mapping object (uses defaults if not provided)
-
-### Default Status Mapping
-
-```json
-{
-  "To Do": "New",
-  "In Progress": "In Progress",
-  "Done": "Complete",
-  "Blocked": "On Hold"
-}
-```
-
-### Custom Status Mapping Example
-
-```json
-{
-  "To Do": "New",
-  "In Progress": "In Progress", 
-  "Code Review": "In Progress",
-  "Testing": "In Progress",
-  "Done": "Complete",
-  "Blocked": "On Hold",
-  "Won't Do": "Complete"
-}
 ```
 
 ## Sync Actions
@@ -157,8 +179,8 @@ The component automatically maps Jira statuses to Asana goal status types:
 - Ensure API token has access to the specified team
 
 #### "No Asana task found" 
-1. Verify that Asana tasks have the Jira ticket field filled
-2. Check the `asana_jira_ticket_field` parameter matches the custom field name
+1. Verify that Asana tasks have Jira ticket attachments (links to Jira tickets)
+2. Ensure attachment names contain valid Jira ticket format (e.g., ABC-123)
 3. Ensure tasks are linked to goals via Asana's Goal Relationships
 
 ## Requirements

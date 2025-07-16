@@ -25,8 +25,7 @@ REQUIRED_PARAMETERS = [
     'jira_token',
     'asana_workspace_gid',
     'asana_team_gid',
-    'asana_token',
-    'asana_jira_ticket_field'
+    'asana_token'
 ]
 
 
@@ -64,8 +63,7 @@ def run_sync(cfg: CommonInterface) -> None:
         asana_config = {
             'workspace_gid': params['asana_workspace_gid'],
             'team_gid': params['asana_team_gid'],
-            'token': params['asana_token'],
-            'jira_ticket_field': params['asana_jira_ticket_field']
+            'token': params['asana_token']
         }
 
         # Load status mapping (with defaults if not provided)

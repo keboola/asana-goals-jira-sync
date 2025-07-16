@@ -15,7 +15,6 @@ class AsanaAPI:
         self.workspace_gid = config.get('workspace_gid')
         self.team_gid = config.get('team_gid')
         self.project_gid = config.get('project_gid')
-        self.jira_ticket_field = config.get('jira_ticket_field', 'Jira Ticket')
         
         if not self.token:
             raise ValueError("Asana token is required")
@@ -90,23 +89,10 @@ class AsanaAPI:
         jira_tasks = []
         
         for task in all_tasks:
-            # Look for Jira ticket in custom fields
-            jira_ticket = None
-            custom_fields = task.get('custom_fields', [])
-            
-            for field in custom_fields:
-                if field.get('name') == self.jira_ticket_field:
-                    jira_ticket = field.get('text_value') or field.get('number_value')
-                    break
-            
-            # If no custom field found, check attachments for Jira ticket
-            if not jira_ticket:
-                task_details = self.get_task_details(task['gid'])
-                if task_details:
-                    jira_ticket = task_details.get('jira_ticket')
-            
-            if jira_ticket:
-                task['jira_ticket'] = jira_ticket
+            # Check attachments for Jira ticket
+            task_details = self.get_task_details(task['gid'])
+            if task_details and task_details.get('jira_ticket'):
+                task['jira_ticket'] = task_details['jira_ticket']
                 jira_tasks.append(task)
         
         return jira_tasks
@@ -215,18 +201,8 @@ class AsanaAPI:
         
         task_data = response['data']
         
-        # Look for Jira ticket in custom fields
-        jira_ticket = None
-        custom_fields = task_data.get('custom_fields', [])
-        
-        for field in custom_fields:
-            if field.get('name') == self.jira_ticket_field:
-                jira_ticket = field.get('text_value') or field.get('number_value')
-                break
-        
-        # If not found in custom fields, check attachments
-        if not jira_ticket:
-            jira_ticket = self._get_jira_ticket_from_attachments(task_gid)
+        # Check attachments for Jira ticket
+        jira_ticket = self._get_jira_ticket_from_attachments(task_gid)
         
         # Add jira_ticket to task data if found
         if jira_ticket:
