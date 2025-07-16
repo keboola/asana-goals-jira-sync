@@ -19,7 +19,6 @@ class JiraAPI:
             base_url = f"https://{base_url}"
         
         self.base_url = base_url
-        self.project_key = config['project_key']
         self.email = config['email']
         self.token = config['token']
         self.custom_fields = config.get('custom_fields', {})

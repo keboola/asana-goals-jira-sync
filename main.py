@@ -20,10 +20,8 @@ from src.sync_manager import SyncManager
 # Required configuration parameters
 REQUIRED_PARAMETERS = [
     'jira_base_url',
-    'jira_project_key',
     'jira_email',
     '#jira_token',
-    'asana_workspace_gid',
     'asana_team_gid',
     '#asana_token'
 ]
@@ -43,13 +41,11 @@ def run_sync(cfg: CommonInterface) -> None:
         # Build configuration objects from Keboola parameters
         jira_config = {
             'base_url': params['jira_base_url'],
-            'project_key': params['jira_project_key'],
             'email': params['jira_email'],
             'token': params['#jira_token']
         }
 
         asana_config = {
-            'workspace_gid': params['asana_workspace_gid'],
             'team_gid': params['asana_team_gid'],
             'token': params['#asana_token']
         }

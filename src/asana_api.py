@@ -12,7 +12,6 @@ class AsanaAPI:
     
     def __init__(self, config: dict[str, any]):
         self.token = config.get('token')
-        self.workspace_gid = config.get('workspace_gid')
         self.team_gid = config.get('team_gid')
         self.project_gid = config.get('project_gid')
         

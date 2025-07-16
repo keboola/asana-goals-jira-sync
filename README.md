@@ -19,12 +19,10 @@ This Keboola component automatically synchronizes Jira tickets with Asana tasks,
 
 #### Jira Configuration
 - **`jira_base_url`** - Your Jira instance URL (e.g., `https://company.atlassian.net`)
-- **`jira_project_key`** - Jira project key (e.g., `CFT`)
 - **`jira_email`** - Your Jira email address
 - **`jira_token`** - Jira API token (**encrypted parameter**)
 
 #### Asana Configuration  
-- **`asana_workspace_gid`** - Asana workspace ID
 - **`asana_team_gid`** - Asana team ID
 - **`asana_token`** - Asana Personal Access Token (**encrypted parameter**)
 
@@ -65,10 +63,8 @@ Copy this JSON template into your Keboola component configuration:
 ```json
 {
   "jira_base_url": "",
-  "jira_project_key": "",
   "jira_email": "",
   "#jira_token": "",
-  "asana_workspace_gid": "",
   "asana_team_gid": "",
   "#asana_token": "",
   "goal_name": "",
