@@ -15,7 +15,7 @@ sys.path.append(os.path.join(pathlib.Path(__file__).parent.parent))
 
 from keboola.component.interface import CommonInterface
 from keboola.component import UserException
-from sync_manager import SyncManager
+from src.sync_manager import SyncManager
 
 # Required configuration parameters
 REQUIRED_PARAMETERS = [

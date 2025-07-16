@@ -6,8 +6,8 @@ Coordinates the synchronization logic between both platforms.
 from datetime import datetime, timedelta
 from dateutil import parser
 
-from jira_api import JiraAPI
-from asana_api import AsanaAPI
+from .jira_api import JiraAPI
+from .asana_api import AsanaAPI
 
 
 class SyncManager:
