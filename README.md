@@ -95,23 +95,99 @@ Copy this JSON template into your Keboola component configuration:
 - `status_mapping` shows the default mapping (Jira status → Asana status)
 - Mark `#jira_token` and `#asana_token` as **encrypted parameters** in Keboola
 
-**Example configurations:**
+## Example Configurations
 
+### 1. Sync Specific Goals Only
 ```json
-// Sync specific goals only
 {
-  "asana_goal_gids": ["1210803030748387", "1210803030748388"]
+  "jira_base_url": "https://mycompany.atlassian.net",
+  "jira_email": "john.doe@company.com",
+  "#jira_token": "your_jira_api_token_here",
+  
+  "asana_goal_gids": ["1210803030748387", "1210803030748388"],
+  
+  "#asana_token": "your_asana_personal_access_token_here",
+  "dry_run": false
 }
+```
 
-// Sync all goals in a team
+### 2. Sync All Goals in a Team
+```json
 {
-  "asana_team_gids": "123456789"
+  "jira_base_url": "https://mycompany.atlassian.net", 
+  "jira_email": "john.doe@company.com",
+  "#jira_token": "your_jira_api_token_here",
+  
+  "asana_team_gids": "123456789012345",
+  
+  "#asana_token": "your_asana_personal_access_token_here",
+  "dry_run": false
 }
+```
 
-// Sync multiple teams and specific goals
+### 3. Sync All Goals in Projects
+```json
 {
+  "jira_base_url": "https://mycompany.atlassian.net",
+  "jira_email": "john.doe@company.com", 
+  "#jira_token": "your_jira_api_token_here",
+  
+  "asana_project_gids": ["987654321098765", "456789012345678"],
+  
+  "#asana_token": "your_asana_personal_access_token_here",
+  "dry_run": false
+}
+```
+
+### 4. Mixed Scope Configuration
+```json
+{
+  "jira_base_url": "https://mycompany.atlassian.net",
+  "jira_email": "john.doe@company.com",
+  "#jira_token": "your_jira_api_token_here",
+  
   "asana_goal_gids": "1210803030748387",
-  "asana_team_gids": ["123456789", "987654321"]
+  "asana_team_gids": ["123456789012345", "234567890123456"],
+  
+  "#asana_token": "your_asana_personal_access_token_here",
+  "dry_run": false
+}
+```
+
+### 5. Custom Status Mapping
+```json
+{
+  "jira_base_url": "https://mycompany.atlassian.net",
+  "jira_email": "john.doe@company.com", 
+  "#jira_token": "your_jira_api_token_here",
+  
+  "asana_team_gids": "123456789012345",
+  
+  "#asana_token": "your_asana_personal_access_token_here",
+  "dry_run": false,
+  "status_mapping": {
+    "To Do": "New",
+    "In Progress": "In Progress",
+    "Code Review": "In Progress", 
+    "Testing": "In Progress",
+    "Done": "Complete",
+    "Blocked": "On Hold",
+    "Won't Do": "Complete"
+  }
+}
+```
+
+### 6. Test Configuration (Dry Run)
+```json
+{
+  "jira_base_url": "https://mycompany.atlassian.net",
+  "jira_email": "john.doe@company.com",
+  "#jira_token": "your_jira_api_token_here",
+  
+  "asana_team_gids": "123456789012345",
+  
+  "#asana_token": "your_asana_personal_access_token_here",
+  "dry_run": true
 }
 ```
 
