@@ -58,7 +58,7 @@ class JiraAPI:
         url = f"{self.base_url}/rest/api/3/issue/{ticket_key}/comment"
         
         try:
-            response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers, params="expand=renderedBody")
             response.raise_for_status()
             data = response.json()
             
@@ -81,6 +81,7 @@ class JiraAPI:
                         'id': comment['id'],
                         'author': comment['author']['displayName'],
                         'body': comment['body'],
+                        'rendered_body': comment['renderedBody'],
                         'created': created_date,
                         'created_str': created_str
                     })

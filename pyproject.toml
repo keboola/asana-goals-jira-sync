@@ -24,6 +24,7 @@ dependencies = [
     "requests>=2.32.0",
     "python-dateutil>=2.9.0",
     "keboola-component>=1.6.0",
+    "asana>=5.2.0",
 ]
 
 [project.optional-dependencies]

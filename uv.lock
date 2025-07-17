@@ -2,6 +2,21 @@ version = 1
 requires-python = ">=3.12"
 
 [[package]]
+name = "asana"
+version = "5.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "python-dateutil" },
+    { name = "six" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f8/eb/4c55e5b38f432e03c5e4fbece847e750225e29ae3f06b1a1a207510f55ad/asana-5.2.0.tar.gz", hash = "sha256:8048195c3507b9256a0d944bb64c6e2728b824d6ba19d4bd25e1d26f28ebf6f8", size = 121127 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/7b/99770247810bc8c1d2aa05befee7d12a4c2663e7040ccee03676e7545084/asana-5.2.0-py3-none-any.whl", hash = "sha256:be9cd2b49f51c624d60b0fb146970ad3b5d22a6722f35d8efd61e4dbbd25a118", size = 193797 },
+]
+
+[[package]]
 name = "black"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -167,6 +182,7 @@ name = "jira-asana-sync"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "asana" },
     { name = "keboola-component" },
     { name = "python-dateutil" },
     { name = "requests" },
@@ -182,6 +198,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "asana", specifier = ">=5.2.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "keboola-component", specifier = ">=1.6.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
