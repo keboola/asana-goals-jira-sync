@@ -36,7 +36,7 @@ class AsanaAPI:
             return goal
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return None
+            raise RuntimeError(f"Failed to get goal by ID {goal_gid}: {e}")
 
     def get_goals_in_team(self, team_gid: str) -> list[dict[str, any]]:
         try:
@@ -44,7 +44,7 @@ class AsanaAPI:
             return list(goals)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return []
+            raise RuntimeError(f"Failed to get goals in team {team_gid}: {e}")
 
     def get_goals_in_project(self, project_gid: str) -> list[dict[str, any]]:
         try:
@@ -52,7 +52,7 @@ class AsanaAPI:
             return list(goals)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return []
+            raise RuntimeError(f"Failed to get goals in project {project_gid}: {e}")
 
     def get_goals_in_workspace(self, workspace_gid: str) -> list[dict[str, any]]:
         try:
@@ -60,7 +60,7 @@ class AsanaAPI:
             return list(goals)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return []
+            raise RuntimeError(f"Failed to get goals in workspace {workspace_gid}: {e}")
 
     def get_team_goals(self, team_gid: str) -> list[dict[str, any]]:
         return self.get_goals_in_team(team_gid)
@@ -79,7 +79,7 @@ class AsanaAPI:
             tasks = list(tasks)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return []
+            raise RuntimeError(f"Failed to get project tasks with Jira field for project {project_gid}: {e}")
         jira_tasks = []
         for task in tasks:
             task_details = self.get_task_details(task['gid'])
@@ -94,7 +94,7 @@ class AsanaAPI:
             stories = list(stories)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return None
+            raise RuntimeError(f"Failed to get latest sync comment for task {task_gid}: {e}")
         sync_comments = [story for story in stories if
                          story.get('type') == 'comment' and story.get('text') and '🔄 **Jira Sync Update**' in story.get(
                              'text')]
@@ -109,7 +109,7 @@ class AsanaAPI:
             relationships = list(relationships)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return []
+            raise RuntimeError(f"Failed to get goal tasks for goal {goal_gid}: {e}")
         tasks = []
         for relationship in relationships:
             supporting_resource = relationship.get('supporting_resource', {})
@@ -128,7 +128,7 @@ class AsanaAPI:
             relationships = list(relationships)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return []
+            raise RuntimeError(f"Failed to get goal projects for goal {goal_gid}: {e}")
         projects = []
         for relationship in relationships:
             supporting_resource = relationship.get('supporting_resource', {})
@@ -145,7 +145,7 @@ class AsanaAPI:
                 "opt_fields": "gid,name,custom_fields.gid,custom_fields.name,custom_fields.text_value,custom_fields.number_value"})
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return None
+            raise RuntimeError(f"Failed to get task details for task {task_gid}: {e}")
         jira_ticket = self._get_jira_ticket_from_attachments(task_gid)
         if jira_ticket:
             task_data['jira_ticket'] = jira_ticket
@@ -157,7 +157,7 @@ class AsanaAPI:
             attachments = list(attachments)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return None
+            raise RuntimeError(f"Failed to get attachments for task {task_gid}: {e}")
         jira_ticket_pattern = r'([A-Z]+-\d+)'
         for attachment in attachments:
             attachment_name = attachment.get('name', '')
@@ -168,7 +168,8 @@ class AsanaAPI:
 
     def create_goal_status_update(self, goal_gid: str, title: str, text: str, status_type: str = "on_track") -> bool:
         asana_text = self._convert_html_to_asana_format(text)
-        print(asana_text)
+        print("Original text:", text)
+        print("Converted to Asana format:", asana_text)
         print('--------------------------------')
         try:
             body = {
@@ -186,7 +187,7 @@ class AsanaAPI:
             return True
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return False
+            raise RuntimeError(f"Failed to create Asana goal status update: {e}")
 
     def get_latest_goal_status_update(self, goal_gid: str) -> dict[str, any] | None:
         try:
@@ -198,7 +199,7 @@ class AsanaAPI:
             status_updates = list(status_updates)
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
-            return None
+            raise RuntimeError(f"Failed to get latest goal status update for goal {goal_gid}: {e}")
         if status_updates:
             status_updates.sort(key=lambda x: x['created_at'], reverse=True)
             return status_updates[0]
@@ -233,14 +234,18 @@ class AsanaAPI:
         html_content = re.sub(r'\s*class="[^"]*"', '', html_content)
         html_content = re.sub(r'\s*id="[^"]*"', '', html_content)
 
-        # Clean up link tags - keep only href
+        # Clean up link tags - keep only href, remove links without href
         def clean_link(match):
             href_match = re.search(r'href="([^"]*)"', match.group(0))
-            if href_match:
+            if href_match and href_match.group(1).strip():
                 return f'<a href="{href_match.group(1)}">'
-            return '<a>'
+            # If no href found or href is empty, remove the entire link tag and keep only the content
+            return ''
 
-        html_content = re.sub(r'<a[^>]*>', clean_link, html_content)
+        # First, handle complete <a>...</a> tags
+        html_content = re.sub(r'<a[^>]*>(.*?)</a>', lambda m: clean_link(m) + m.group(1) + '</a>' if clean_link(m) else m.group(1), html_content)
+        # Remove any remaining standalone <a> tags without href
+        html_content = re.sub(r'<a[^>]*>(?!.*href)', '', html_content)
 
         # Convert <b> to <strong>
         html_content = re.sub(r'<b>', '<strong>', html_content)

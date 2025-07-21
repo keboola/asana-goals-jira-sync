@@ -250,19 +250,15 @@ class SyncManager:
             print(f"      Text preview: {status_text[:200]}...")
             return True
         else:
-            success = self.asana.create_goal_status_update(
+            # This will raise an exception if it fails
+            self.asana.create_goal_status_update(
                 goal_gid=goal_gid,
                 title=title,
                 text=status_text,
                 status_type=status_type
             )
-
-            if success:
-                print(f"   ✅ Goal status update created")
-            else:
-                print(f"   ❌ Failed to create goal status update")
-
-            return success
+            print(f"   ✅ Goal status update created")
+            return True
 
     def _build_status_text_html(self, all_new_comments, jira_tickets_info) -> str:
         html = "<strong>🚀 Automatic Activity Update</strong>\n"
@@ -379,17 +375,14 @@ class SyncManager:
                         'source': f'goal: {goal_name}'
                     })
                 else:
-                    print(f"         ❌ Could not get Jira status for {jira_ticket}")
+                    raise RuntimeError(f"Could not get Jira status for ticket {jira_ticket}")
 
         # Create goal status update with all Jira information
         if jira_tickets_info:
-            success = self.create_goal_status_update(goal_gid, goal_name, jira_tickets_info)
-            if success:
-                print(f"   ✅ Goal '{goal_name}': Processed {len(jira_tickets_info)} Jira tickets")
-                return 1  # Return 1 goal processed
-            else:
-                print(f"   ❌ Goal '{goal_name}': Failed to process status update")
-                return 0
+            # This will raise an exception if it fails
+            self.create_goal_status_update(goal_gid, goal_name, jira_tickets_info)
+            print(f"   ✅ Goal '{goal_name}': Processed {len(jira_tickets_info)} Jira tickets")
+            return 1  # Return 1 goal processed
         else:
             print(f"   ⚠️  No Jira tickets found for goal '{goal_name}'")
             return 0
@@ -515,17 +508,14 @@ class SyncManager:
                         'source': f'goal: {goal_name}'
                     })
                 else:
-                    print(f"         ❌ Could not get Jira status for {jira_ticket}")
+                    raise RuntimeError(f"Could not get Jira status for ticket {jira_ticket}")
 
         # Create goal status update with all Jira information
         if jira_tickets_info:
-            success = self.create_goal_status_update(goal_gid, goal_name, jira_tickets_info)
-            if success:
-                print(f"   ✅ Goal '{goal_name}': Processed {len(jira_tickets_info)} Jira tickets")
-                return 1  # Return 1 goal processed
-            else:
-                print(f"   ❌ Goal '{goal_name}': Failed to process status update")
-                return 0
+            # This will raise an exception if it fails
+            self.create_goal_status_update(goal_gid, goal_name, jira_tickets_info)
+            print(f"   ✅ Goal '{goal_name}': Processed {len(jira_tickets_info)} Jira tickets")
+            return 1  # Return 1 goal processed
         else:
             print(f"   ⚠️  No Jira tickets found for goal '{goal_name}'")
             return 0
