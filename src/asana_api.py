@@ -7,6 +7,8 @@ import re
 import asana
 from asana.rest import ApiException
 
+from bs4 import BeautifulSoup
+
 
 class AsanaAPI:
     """Asana API client using Personal Access Token and official asana Python client (5.x style)"""
@@ -180,14 +182,27 @@ class AsanaAPI:
                     'status_type': status_type
                 }
             }
-            opts = {
-                'opt_fields': "author,author.name,created_at,created_by,created_by.name,hearted,hearts,hearts.user,hearts.user.name,html_text,liked,likes,likes.user,likes.user.name,modified_at,num_hearts,num_likes,parent,parent.name,resource_subtype,status_type,text,title"}
+            opts = {}
             api_response = self.status_updates_api.create_status_for_object(body, opts)
             print(api_response)
             return True
         except ApiException as e:
             print(f"❌ Asana API request failed: {e}")
             raise RuntimeError(f"Failed to create Asana goal status update: {e}")
+
+    def update_goal_metric(self, goal_gid: str, value: int) -> bool:
+        try:
+            body = {
+                "data": {
+                    "current_number_value": value/100.0,  # Asana expects a float value
+                }
+            }
+            print(f"Updating goal metric for goal {goal_gid} with {body}")
+            self.goals_api.update_goal_metric(goal_gid=goal_gid, body=body, opts={})
+            return True
+        except ApiException as e:
+            print(f"❌ Asana API request failed: {e}")
+            raise RuntimeError(f"Failed to update goal metric for goal {goal_gid}: {e}")
 
     def get_latest_goal_status_update(self, goal_gid: str) -> dict[str, any] | None:
         try:
@@ -210,59 +225,73 @@ class AsanaAPI:
         Convert HTML content to Asana-compatible rich text format for goal status updates.
         Goal status updates support only: <p>, <strong>, <em>, <a>, <ul>, <ol>, <li>
         """
-        import re
-
-        # Remove existing body tags if present
-        html_content = re.sub(r'</?body[^>]*>', '', html_content)
-
-        # Convert headers to strong text
-        html_content = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'<strong>\1</strong>', html_content)
-
-        # Convert <br> to newlines
-        html_content = re.sub(r'<br[^>]*>', '\n', html_content)
-
-        # Remove <p> tags but keep content
-        html_content = re.sub(r'<p[^>]*>', '', html_content)
-        html_content = re.sub(r'</p>', '\n', html_content)
-
-        # Remove divs but keep content
-        html_content = re.sub(r'<div[^>]*>', '', html_content)
-        html_content = re.sub(r'</div>', '\n', html_content)
-
-        # Remove all attributes except href for links
-        html_content = re.sub(r'\s*style="[^"]*"', '', html_content)
-        html_content = re.sub(r'\s*class="[^"]*"', '', html_content)
-        html_content = re.sub(r'\s*id="[^"]*"', '', html_content)
-
-        # Clean up link tags - keep only href, remove links without href
-        def clean_link(match):
-            href_match = re.search(r'href="([^"]*)"', match.group(0))
-            if href_match and href_match.group(1).strip():
-                return f'<a href="{href_match.group(1)}">'
-            # If no href found or href is empty, remove the entire link tag and keep only the content
-            return ''
-
-        # First, handle complete <a>...</a> tags
-        html_content = re.sub(r'<a[^>]*>(.*?)</a>', lambda m: clean_link(m) + m.group(1) + '</a>' if clean_link(m) else m.group(1), html_content)
-        # Remove any remaining standalone <a> tags without href
-        html_content = re.sub(r'<a[^>]*>(?!.*href)', '', html_content)
-
-        # Convert <b> to <strong>
-        html_content = re.sub(r'<b>', '<strong>', html_content)
-        html_content = re.sub(r'</b>', '</strong>', html_content)
-
-        # Convert <i> to <em>
-        html_content = re.sub(r'<i>', '<em>', html_content)
-        html_content = re.sub(r'</i>', '</em>', html_content)
-
-        # Remove unsupported tags but keep content (removed 'p' and 'br' from this list)
+        return self._convert_html_to_asana_format_impl(html_content)
+    
+    def _convert_html_to_asana_format_impl(self, html_content: str) -> str:
+        """
+        Convert HTML content using BeautifulSoup for reliable parsing.
+        """
+        # Parse HTML with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Remove unsupported tags but keep their content
         unsupported_tags = ['script', 'style', 'meta', 'head', 'html', 'title', 'span', 'img']
         for tag in unsupported_tags:
-            html_content = re.sub(f'<{tag}[^>]*>.*?</{tag}>', '', html_content, flags=re.DOTALL)
-            html_content = re.sub(f'<{tag}[^>]*/?>', '', html_content)
-
-        # Clean up excessive newlines
-        html_content = re.sub(r'\n\s*\n\s*\n', '\n\n', html_content)
-
+            for element in soup.find_all(tag):
+                element.unwrap()  # Remove tag but keep content
+        
+        # Convert headers to strong text
+        for header in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            new_tag = soup.new_tag('strong')
+            new_tag.string = header.get_text()
+            header.replace_with(new_tag)
+        
+        # Convert <b> to <strong>
+        for b_tag in soup.find_all('b'):
+            new_tag = soup.new_tag('strong')
+            new_tag.string = b_tag.get_text()
+            b_tag.replace_with(new_tag)
+        
+        # Convert <i> to <em>
+        for i_tag in soup.find_all('i'):
+            new_tag = soup.new_tag('em')
+            new_tag.string = i_tag.get_text()
+            i_tag.replace_with(new_tag)
+        
+        # Convert <br> to newlines
+        for br in soup.find_all('br'):
+            br.replace_with('\n')
+        
+        # Clean up links - keep only href, remove links without href
+        for a_tag in soup.find_all('a'):
+            href = a_tag.get('href')
+            if not href or not href.strip():
+                # Remove link tag but keep content
+                a_tag.unwrap()
+            else:
+                # Keep only href attribute, remove all others
+                a_tag.attrs = {'href': href}
+        
+        # Remove all attributes except href from all tags
+        for tag in soup.find_all():
+            if tag.name == 'a':
+                # Keep href for links
+                href = tag.get('href')
+                tag.attrs = {'href': href} if href else {}
+            else:
+                # Remove all attributes for other tags
+                tag.attrs = {}
+        
+        # Remove <p> and <div> tags but keep content
+        for tag in soup.find_all(['p', 'div']):
+            tag.unwrap()
+        
+        # Clean up excessive newlines and whitespace
+        text = str(soup)
+        # Remove body tags if present
+        text = text.replace('<body>', '').replace('</body>', '')
+        # Clean up whitespace
+        text = '\n'.join(line.strip() for line in text.split('\n') if line.strip())
+        
         # Wrap in body tag as required by Asana
-        return f'<body>{html_content.strip()}</body>'
+        return f'<body>{text}</body>'
