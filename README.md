@@ -6,12 +6,13 @@
 
 This Keboola component automatically synchronizes Jira tickets with Asana tasks, featuring:
 
-- ✅ **Automatic status updates** in Asana based on Jira changes  
-- 🔄 **Status mapping** from Jira to Asana
+- ✅ **Automatic health indicator updates** in Asana based on Jira changes  
+- 🔄 **Health indicator mapping** from Jira to Asana
 - 💬 **Comment transfer** from Jira to Asana status updates
 - 🔗 **Goal-oriented workflow** via Asana Goals
 - 📊 **Configuration via Keboola UI**
 - 🔐 **Encrypted parameter storage** for API tokens
+- 📈 **Goal metric updates** from Jira custom fields
 
 ## Configuration Parameters
 
@@ -34,16 +35,16 @@ This Keboola component automatically synchronizes Jira tickets with Asana tasks,
 ### Optional Parameters
 
 - **`dry_run`** - Test mode that shows what would be done without making changes (default: false)
-- **`status_mapping`** - Custom status mapping object (uses defaults if not provided)
+- **`status_mapping`** - Custom health indicator mapping object (uses defaults if not provided)
 
 ### Default Status Mapping
 
 ```json
 {
-  "To Do": "New",
-  "In Progress": "In Progress",
-  "Done": "Complete",
-  "Blocked": "On Hold"
+  "on_track": "on_track",
+  "at_risk": "at_risk",
+  "off_track": "off_track",
+  "complete": "complete"
 }
 ```
 
@@ -51,13 +52,10 @@ This Keboola component automatically synchronizes Jira tickets with Asana tasks,
 
 ```json
 {
-  "To Do": "New",
-  "In Progress": "In Progress", 
-  "Code Review": "In Progress",
-  "Testing": "In Progress",
-  "Done": "Complete",
-  "Blocked": "On Hold",
-  "Won't Do": "Complete"
+  "on_track": "on_track",
+  "at_risk": "at_risk", 
+  "off_track": "off_track",
+  "complete": "complete"
 }
 ```
 
@@ -79,10 +77,10 @@ Copy this JSON template into your Keboola component configuration:
   "#asana_token": "",
   "dry_run": false,
   "status_mapping": {
-    "To Do": "New",
-    "In Progress": "In Progress", 
-    "Done": "Complete",
-    "Blocked": "On Hold"
+    "on_track": "on_track",
+    "at_risk": "at_risk", 
+    "done": "complete",
+    "off_track": "off_track"
   }
 }
 ```
@@ -92,7 +90,7 @@ Copy this JSON template into your Keboola component configuration:
 - **At least one** of the `asana_*_gids` parameters must be specified
 - Scope parameters can be strings or arrays: `"123456"` or `["123456", "789012"]`
 - `dry_run: true` enables test mode without making changes
-- `status_mapping` shows the default mapping (Jira status → Asana status)
+- `status_mapping` shows the default mapping (Jira health indicator → Asana status type)
 - Mark `#jira_token` and `#asana_token` as **encrypted parameters** in Keboola
 
 ## Example Configurations
@@ -166,13 +164,10 @@ Copy this JSON template into your Keboola component configuration:
   "#asana_token": "your_asana_personal_access_token_here",
   "dry_run": false,
   "status_mapping": {
-    "To Do": "New",
-    "In Progress": "In Progress",
-    "Code Review": "In Progress", 
-    "Testing": "In Progress",
-    "Done": "Complete",
-    "Blocked": "On Hold",
-    "Won't Do": "Complete"
+    "on_track": "on_track",
+    "at_risk": "at_risk",
+    "off_track": "off_track", 
+    "complete": "complete"
   }
 }
 ```
@@ -223,16 +218,17 @@ graph TD
     R --> S[For each task with Jira ticket]
     
     S --> T[Get Jira ticket from API]
-    T --> U{Status changed?}
+    T --> U{Health indicator changed?}
     
     U -->|No| V[Skip]
     U -->|Yes| W[Get new comments from Jira]
     
-    W --> X[Apply status mapping]
+    W --> X[Apply health indicator mapping]
     X --> Y{dry_run mode?}
     Y -->|Yes| Z[Log what would be done]
     Y -->|No| AA[Create status update in Asana]
     AA --> BB[Add comments to status]
+    BB --> CC[Update goal metrics]
     
     Z --> CC[Next task?]
     BB --> CC
@@ -267,14 +263,18 @@ The component includes a **Test Connection** sync action that validates:
 2. Create new Personal Access Token
 3. Add as **encrypted parameter** in Keboola configuration
 
-## Asana Status Types
+## Jira Health Indicators & Asana Status Types
 
-The component automatically maps Jira statuses to Asana goal status types:
+The component automatically maps Jira health indicators to Asana goal status types:
 
+### Jira Health Indicators (from custom field 10406)
 - `on_track` - everything going according to plan (green)
 - `at_risk` - there are risks (yellow)  
 - `off_track` - problems (red)
 - `complete` - finished (green)
+
+### Goal Metrics (from custom field 11699)
+The component also updates Asana goal metrics with integer values from Jira custom field 11699.
 
 ## Troubleshooting
 
@@ -347,6 +347,8 @@ uv run python main.py
 - **Keboola Component SDK** for platform integration
 - **Requests** for HTTP API calls
 - **python-dateutil** for timezone handling
+- **BeautifulSoup4** for HTML parsing and generation
+- **Asana Python SDK** for API integration
 
 ## License
 
