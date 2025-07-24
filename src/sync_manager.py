@@ -43,13 +43,11 @@ class SyncManager:
 
         all_new_comments, current_ticket_statuses = self.get_comments_and_statuses(jira_tickets_info, since_date)
 
-        status_changes_detected = self.detect_status_change(current_ticket_statuses, latest_status)
-
         # Determine if we need to create a new status update
         has_new_activity = len(all_new_comments) > 0  # Any new comments trigger update
         is_first_status = latest_status is None
 
-        if not has_new_activity and not status_changes_detected and not is_first_status:
+        if not has_new_activity and not is_first_status:
             print(f"   ℹ️  No changes since last update")
             return True  # Return True because no update was needed (success case)
 
@@ -96,26 +94,6 @@ class SyncManager:
         else:
             print(f"   → Mapped Jira status '{ticket_health_indicator}' to Asana status type '{status_type}'")
         return status_type
-
-    @staticmethod
-    def detect_status_change(current_ticket_statuses, latest_status):
-        # Check if any ticket statuses changed by comparing with previous status update
-        status_changes_detected = False
-        if latest_status and latest_status.get('text'):
-            previous_text = latest_status['text']
-
-            for ticket, current_status in current_ticket_statuses.items():
-                # Check if this specific ticket with current status exists in previous text
-                ticket_search_pattern = f"[{ticket}]"
-                status_search_pattern = f"({current_status} -"
-
-                ticket_present = ticket_search_pattern in previous_text
-                status_present = status_search_pattern in previous_text
-
-                if not (ticket_present and status_present):
-                    status_changes_detected = True
-                    break
-        return status_changes_detected
 
     def get_comments_and_statuses(self, jira_tickets_info, since_date):
         # Collect new comments and status changes from all Jira tickets
