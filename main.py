@@ -86,10 +86,10 @@ def run_sync(cfg: CommonInterface) -> None:
 
         # Load status mapping (with defaults if not provided)
         status_mapping = params.get('status_mapping', {
-            'To Do': 'New',
-            'In Progress': 'In Progress',
-            'Done': 'Complete',
-            'Blocked': 'On Hold'
+            'green': 'on_track',
+            'amber': 'at_risk',
+            'red': 'off_track',
+            "Temporary paused": "dropped"
         })
         
         # Check dry run mode

@@ -51,14 +51,19 @@ class JiraAPI:
         """Get current status of a ticket"""
         ticket = self.get_ticket(ticket_key)
         if ticket:
-            if not 'customfield_11699' in ticket['fields']:
-                print(f"Ticket {ticket_key} does not have custom field 'customfield_11699' (goal_completion_value)")
+            # Get goal completion value (custom field 11699)
             goal_completion_value = ticket['fields'].get('customfield_11699', None)
-            if not 'customfield_10406' in ticket['fields']:
+            if goal_completion_value is None:
+                print(f"Ticket {ticket_key} does not have custom field 'customfield_11699' (goal_completion_value)")
+            
+            # Get health indicator (custom field 10406)
+            health_indicator_field = ticket['fields'].get('customfield_10406', None)
+            if health_indicator_field is None:
                 print(f"Ticket {ticket_key} does not have custom field 'customfield_10406' (Health Indicator)")
-                health_indicator = None
+                health_indicator = 'green'  # Default value
             else:
-                health_indicator = ticket['fields'].get('customfield_10406', None).get('value', None)
+                health_indicator = health_indicator_field.get('value', 'green')
+            
             return health_indicator, goal_completion_value
         return None
 

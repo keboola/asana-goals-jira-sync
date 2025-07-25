@@ -41,7 +41,7 @@ class SyncManager:
         else:
             print(f"   📅 Creating initial status")
 
-        all_new_comments, current_ticket_statuses = self.get_comments_and_statuses(jira_tickets_info, since_date)
+        all_new_comments= self.get_comments(jira_tickets_info, since_date)
 
         # Determine if we need to create a new status update
         has_new_activity = len(all_new_comments) > 0  # Any new comments trigger update
@@ -84,24 +84,23 @@ class SyncManager:
             return True
 
     def set_status_type(self, jira_tickets_info):
-        ticket_health_indicator = jira_tickets_info[0].get('jira_health_indicator', 'on_track')
-        # status_mapping from config is a dict mapping Jira statuses to Asana status types
+        ticket_health_indicator = jira_tickets_info[0].get('jira_health_indicator', 'green')
+        # status_mapping from config is a dict mapping Jira custom field values to Asana status types
         status_type = self.status_mapping.get(ticket_health_indicator)
         if not status_type:
             # Default to "On Track" if no mapping found
             print(f"   ⚠️  No status mapping found for '{ticket_health_indicator}', defaulting to 'on_track'")
             status_type = 'on_track'
         else:
-            print(f"   → Mapped Jira status '{ticket_health_indicator}' to Asana status type '{status_type}'")
+            print(f"   → Mapped Jira health indicator '{ticket_health_indicator}' to Asana status type '{status_type}'")
         return status_type
 
-    def get_comments_and_statuses(self, jira_tickets_info, since_date):
+    def get_comments(self, jira_tickets_info, since_date):
         # Collect new comments and status changes from all Jira tickets
         all_new_comments = []
         current_ticket_statuses = {}
         for ticket_info in jira_tickets_info:
             jira_ticket = ticket_info['jira_ticket']
-            current_ticket_statuses[jira_ticket] = ticket_info['jira_health_indicator']
 
             # Get new comments from Jira
             comments = self.jira.get_comments_since(jira_ticket, since_date)
@@ -115,7 +114,7 @@ class SyncManager:
                 })
         # Sort comments by date (newest first)
         all_new_comments.sort(key=lambda x: x['created'], reverse=True)
-        return all_new_comments, current_ticket_statuses
+        return all_new_comments
 
     @staticmethod
     def _build_status_text_html(all_new_comments, jira_tickets_info) -> str:
@@ -144,9 +143,9 @@ class SyncManager:
             body.append(task_link)
             body.append(soup.new_string('\n'))
             
-            # Add status
+            # Add health indicator
             status_label = soup.new_tag('strong')
-            status_label.string = "Status: "
+            status_label.string = "Health Indicator: "
             body.append(status_label)
             body.append(soup.new_string(f"{jira_status}\n"))
             
@@ -295,8 +294,8 @@ class SyncManager:
 
                 # Get current Jira status
                 jira_health_indicator, jira_goal_completion = self.jira.get_ticket_details(jira_ticket)
-                if jira_health_indicator:
-                    print(f"         Current status: {jira_health_indicator}")
+                if jira_health_indicator is not None:
+                    print(f"         Current health indicator: {jira_health_indicator}")
                     jira_tickets_info.append({
                         'task_name': task_name,
                         'jira_ticket': jira_ticket,
@@ -305,7 +304,8 @@ class SyncManager:
                         'source': f'goal: {goal_name}'
                     })
                 else:
-                    raise RuntimeError(f"Could not get Jira status for ticket {jira_ticket}")
+                    print(f"         ⚠️  Could not get Jira health indicator for ticket {jira_ticket}, skipping")
+                    continue
 
         # Create goal status update with all Jira information
         if jira_tickets_info:
